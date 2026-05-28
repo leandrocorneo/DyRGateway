@@ -1,0 +1,9 @@
+services:
+  next-app:
+    build: .
+    container_name: next-app
+    ports:
+      - "9100:9100"
+    volumes:
+      - .:/app
+      - /app/node_modules
