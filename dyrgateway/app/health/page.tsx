@@ -1,0 +1,22 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Activity, CheckCircle2, Clock3, Database, RefreshCw, Server, TriangleAlert, Waypoints } from "lucide-react";
+import { api } from "@/lib/apiClient";
+import type { HealthStatus } from "@/lib/types";
+import { Button, PageHeader } from "@/app/components/ui";
+
+export default function HealthPage() {
+  const [health, setHealth] = useState<HealthStatus | null>(null); const [loading, setLoading] = useState(false); const [error, setError] = useState("");
+  const load = async () => { setLoading(true); setError(""); try { const response = await api.get<HealthStatus>("/health"); setHealth(response.data); } catch { setError("Nao foi possivel obter o health check da API."); } finally { setLoading(false); } };
+  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, []);
+  const components = [{ label: "Servidor", description: "API e processamento de requisicoes", value: health?.server, icon: Server }, { label: "Database", description: "Persistencia das configuracoes", value: health?.database, icon: Database }, { label: "Redis", description: "Cache de resolucao e dados temporarios", value: health?.redis, icon: Waypoints }];
+  const allOk = components.every((item) => item.value === "ok");
+  return <div className="app-page">
+    <PageHeader eyebrow="Monitoramento" title="Saude do sistema" description="Verifique a disponibilidade instantanea dos componentes essenciais do gateway." actions={<Button variant="secondary" icon={<RefreshCw size={15} className={loading ? "animate-spin" : ""} />} onClick={load} disabled={loading}>{loading ? "Atualizando..." : "Atualizar leitura"}</Button>} />
+    {error ? <div className="feedback feedback-error"><TriangleAlert size={16} /><span>{error}</span></div> : null}
+    <section className={`panel flex flex-col justify-between gap-5 p-5 sm:flex-row sm:items-center ${allOk ? "border-l-4 border-l-[var(--success)]" : "border-l-4 border-l-[var(--warning)]"}`}><div className="flex items-center gap-4"><span className={`grid h-12 w-12 place-items-center rounded-md ${allOk ? "bg-[var(--success-soft)] text-[var(--success)]" : "bg-[var(--warning-soft)] text-[var(--warning)]"}`}>{allOk ? <CheckCircle2 size={22} /> : <Activity size={22} />}</span><div><h2 className="text-base font-semibold">{allOk ? "Operacao normal" : health ? "Atencao necessaria" : "Aguardando leitura"}</h2><p className="mt-1 text-xs text-[var(--muted)]">{allOk ? "Todos os componentes responderam corretamente." : "Consulte os componentes abaixo para mais detalhes."}</p></div></div><div className="flex items-center gap-2 text-xs text-[var(--muted)]"><Clock3 size={14} />{health?.timestamp ? new Date(health.timestamp).toLocaleString("pt-BR") : "Sem leitura"}</div></section>
+    <section className="grid gap-4 lg:grid-cols-3">{components.map((item) => { const Icon = item.icon; const ok = item.value === "ok"; return <article key={item.label} className="panel p-5"><div className="flex items-start justify-between"><span className="grid h-10 w-10 place-items-center rounded-md bg-[var(--panel-strong)] text-[var(--muted-strong)]"><Icon size={19} /></span><span className={`badge ${ok ? "badge-success" : "badge-neutral"}`}><span className="badge-dot" />{item.value || "-"}</span></div><h2 className="mt-5 text-sm font-semibold">{item.label}</h2><p className="mt-1 text-xs leading-5 text-[var(--muted)]">{item.description}</p><div className="mt-5 border-t border-[var(--border)] pt-4 text-xs"><span className="text-[var(--muted)]">Resposta atual</span><strong className={`float-right ${ok ? "text-[var(--success)]" : "text-[var(--warning)]"}`}>{ok ? "Disponivel" : "Indisponivel"}</strong></div></article>; })}</section>
+    <section className="panel"><div className="panel-header"><div><h2 className="panel-title">Sobre esta leitura</h2><p className="panel-subtitle">Dados fornecidos diretamente por GET /health</p></div></div><div className="panel-body grid gap-4 text-xs leading-5 text-[var(--muted)] md:grid-cols-3"><p>O status representa uma fotografia do momento da consulta, sem historico de disponibilidade.</p><p>Metricas de latencia e incidentes nao sao exibidas porque a API ainda nao disponibiliza esses dados.</p><p>Uma resposta diferente de <span className="mono text-[var(--foreground)]">ok</span> indica que o componente requer verificacao operacional.</p></div></section>
+  </div>;
+}
