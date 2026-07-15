@@ -56,7 +56,7 @@ export default function AdminFrame({ children }: PropsWithChildren) {
               <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[.08em] text-[var(--sidebar-muted)]">{group.label}</p>
               <div className="space-y-1">
                 {group.items.map((item) => {
-                  const active = pathname === item.href;
+                  const active = item.href === "/health" ? pathname.startsWith("/health") : pathname === item.href;
                   const Icon = item.icon;
                   return <Link key={item.href} href={item.href} onClick={() => setMenuOpen(false)} className={`flex h-10 items-center gap-3 rounded-md px-3 text-[13px] font-medium ${active ? "bg-white text-[#15231d] shadow-sm" : "text-white/70 hover:bg-white/7 hover:text-white"}`}><Icon size={17} strokeWidth={active ? 2.2 : 1.8} /><span className="flex-1">{item.label}</span>{active ? <ChevronRight size={14} /> : null}</Link>;
                 })}
@@ -80,7 +80,7 @@ export default function AdminFrame({ children }: PropsWithChildren) {
         <header className="sticky top-0 z-30 flex h-[76px] items-center justify-between border-b border-[var(--border)] bg-[var(--panel)]/94 px-4 backdrop-blur-md sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button className="icon-button lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Abrir menu"><Menu size={19} /></button>
-            <div className="min-w-0"><p className="text-[10px] font-semibold uppercase text-[var(--muted)]">Painel administrativo</p><p className="truncate text-sm font-semibold text-[var(--foreground)]">{titles[pathname] || "DyRGateway"}</p></div>
+            <div className="min-w-0"><p className="text-[10px] font-semibold uppercase text-[var(--muted)]">Painel administrativo</p><p className="truncate text-sm font-semibold text-[var(--foreground)]">{titles[pathname] || (pathname.startsWith("/health/containers/") ? "Detalhes do container" : "DyRGateway")}</p></div>
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden items-center gap-2 rounded-md bg-[var(--success-soft)] px-3 py-2 text-[11px] font-semibold text-[var(--success)] sm:flex"><span className="h-1.5 w-1.5 rounded-full bg-current" />API configurada</span>

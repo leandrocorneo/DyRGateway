@@ -101,10 +101,6 @@ export function componentLabel(component: string) {
     api: "API",
     database: "PostgreSQL",
     redis: "Redis",
-    "container:api": "Container API",
-    "container:database": "Container PostgreSQL",
-    "container:redis": "Container Redis",
-    "container:collector": "Coletor Docker",
   };
   return labels[component] || component.replace("container:", "");
 }
@@ -112,4 +108,29 @@ export function componentLabel(component: string) {
 export function asSnapshot(value: InfrastructureSnapshot | Record<string, InfrastructureSnapshot> | null) {
   if (!value || !("component" in value)) return null;
   return value as InfrastructureSnapshot;
+}
+
+export function dockerStateLabel(state: string | null | undefined) {
+  const labels: Record<string, string> = {
+    running: "Em execucao",
+    exited: "Parado",
+    created: "Criado",
+    restarting: "Reiniciando",
+    paused: "Pausado",
+    removing: "Removendo",
+    dead: "Inativo",
+  };
+  if (!state) return "Desconhecido";
+  return labels[state.toLowerCase()] || state;
+}
+
+export function containerIdentityLabel(source: string | null | undefined) {
+  if (source === "compose") return "Docker Compose";
+  if (source === "name") return "Nome do container";
+  return source || "Desconhecida";
+}
+
+export function shortContainerId(value: string | null | undefined) {
+  if (!value) return "-";
+  return value.length > 12 ? value.slice(0, 12) : value;
 }

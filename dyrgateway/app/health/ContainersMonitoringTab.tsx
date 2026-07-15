@@ -1,83 +1,213 @@
 "use client";
 
-import { useMemo } from "react";
-import { Box, Cpu, HardDrive, MemoryStick, Network, RotateCcw } from "lucide-react";
-import { ChartPanel, KpiCard, MetricChart, StatusBadge, type ChartSeries } from "@/app/components/monitoring";
-import { Select } from "@/app/components/ui";
-import { addTimeGaps, componentLabel, formatBytes, formatDuration, formatNumber, formatPercent } from "@/lib/monitoring";
-import type { InfrastructureMonitoringResponse, InfrastructureSeriesPoint, MonitoringRange } from "@/lib/types";
+import Link from "next/link";
+import type { FormEvent } from "react";
+import {
+  Boxes,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  CircleHelp,
+  CircleStop,
+  ExternalLink,
+  FilterX,
+  HeartPulse,
+  PlayCircle,
+  Search,
+  ShieldAlert,
+} from "lucide-react";
+import { KpiCard, StatusBadge } from "@/app/components/monitoring";
+import { Button, EmptyState, Input, Select } from "@/app/components/ui";
+import {
+  dockerStateLabel,
+  formatBytes,
+  formatDateTime,
+  formatDuration,
+  formatNumber,
+  formatPercent,
+  statusLabel,
+} from "@/lib/monitoring";
+import type {
+  ContainerCatalogItem,
+  ContainerCatalogResponse,
+  ContainerCatalogState,
+} from "@/lib/types";
 
-type ContainerFilter = "all" | "api" | "database" | "redis";
-const colors = ["var(--chart-blue)", "var(--chart-sky)", "var(--chart-ink)"];
 
-export default function ContainersMonitoringTab({ metrics, range, filter, onFilterChange }: { metrics: InfrastructureMonitoringResponse; range: MonitoringRange; filter: ContainerFilter; onFilterChange: (value: ContainerFilter) => void }) {
-  const components = metrics.breakdown.filter((item) => item.component.startsWith("container:"));
-  const keys = components.map((item) => item.component);
-  const selectedKey = filter === "all" ? null : `container:${filter}`;
+type Props = {
+  metrics: ContainerCatalogResponse;
+  state: ContainerCatalogState;
+  project: string;
+  search: string;
+  page: number;
+  take: number;
+  onQueryChange: (values: Record<string, string | null>) => void;
+  detailHref: (id: string) => string;
+};
 
-  const chartData = useMemo(() => addTimeGaps(metrics.series, metrics.meta.stepSeconds).map((item) => {
-    const point = item as Partial<InfrastructureSeriesPoint> & { timestamp: string };
-    const row: Record<string, string | number | null> = { timestamp: point.timestamp };
-    keys.forEach((key) => {
-      const value = point.components?.[key];
-      row[`${key}:cpu`] = value?.cpuPercent ?? null;
-      row[`${key}:memory`] = value?.memoryPercent ?? null;
-      row[`${key}:rx`] = value?.networkRxBytes ?? null;
-      row[`${key}:tx`] = value?.networkTxBytes ?? null;
-      row[`${key}:network`] = value?.networkRxBytes === undefined || value.networkTxBytes === undefined ? null : value.networkRxBytes + value.networkTxBytes;
-      row[`${key}:read`] = value?.blockReadBytes ?? null;
-      row[`${key}:write`] = value?.blockWriteBytes ?? null;
-      row[`${key}:layer`] = value?.writableLayerBytes ?? null;
+export default function ContainersMonitoringTab({
+  metrics,
+  state,
+  project,
+  search,
+  page,
+  take,
+  onQueryChange,
+  detailHref,
+}: Props) {
+  const totalPages = Math.max(1, Math.ceil(metrics.meta.pagination.total / take));
+  const currentPage = Math.min(page, totalPages);
+  const pages = paginationWindow(currentPage, totalPages);
+
+  const submitFilters = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const nextSearch = String(form.get("search") || "").trim();
+    const nextProject = String(form.get("project") || "").trim();
+    onQueryChange({
+      search: nextSearch || null,
+      project: nextProject || null,
+      page: null,
     });
-    return row;
-  }), [keys, metrics]);
+  };
 
-  const cpuSeries = createSeries(keys, "cpu");
-  const memorySeries = createSeries(keys, "memory");
-  const networkSeries: ChartSeries[] = selectedKey
-    ? [{ key: `${selectedKey}:rx`, label: "RX acumulado", color: "var(--chart-blue)", kind: "area" }, { key: `${selectedKey}:tx`, label: "TX acumulado", color: "var(--chart-sky)" }]
-    : createSeries(keys, "network", "Rede total");
-  const networkTotal = components.length === 1 && components[0].networkRxBytes !== undefined && components[0].networkTxBytes !== undefined ? components[0].networkRxBytes + components[0].networkTxBytes : null;
-  const storageSeries: ChartSeries[] = selectedKey
-    ? [{ key: `${selectedKey}:read`, label: "Block read", color: "var(--chart-blue)", kind: "area" }, { key: `${selectedKey}:write`, label: "Block write", color: "var(--chart-sky)" }, { key: `${selectedKey}:layer`, label: "Camada gravavel", color: "var(--chart-ink)" }]
-    : createSeries(keys, "layer", "Camada gravavel");
+  return (
+    <>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+        <KpiCard label="Containers" value={formatNumber(metrics.summary.total, 0)} detail="No escopo atual" icon={<Boxes size={18} />} accent="neutral" />
+        <KpiCard label="Em execucao" value={formatNumber(metrics.summary.running, 0)} detail="Estado running" icon={<PlayCircle size={18} />} accent="blue" />
+        <KpiCard label="Parados" value={formatNumber(metrics.summary.stopped, 0)} detail="Estados nao running" icon={<CircleStop size={18} />} accent="neutral" />
+        <KpiCard label="Saudaveis" value={formatNumber(metrics.summary.healthy, 0)} detail="Healthcheck healthy" icon={<HeartPulse size={18} />} accent="sky" />
+        <KpiCard label="Com falha" value={formatNumber(metrics.summary.unhealthy, 0)} detail="Healthcheck unhealthy" icon={<ShieldAlert size={18} />} accent={metrics.summary.unhealthy > 0 ? "red" : "neutral"} />
+        <KpiCard label="Desconhecidos" value={formatNumber(metrics.summary.unknown, 0)} detail="Sem health observavel" icon={<CircleHelp size={18} />} accent="neutral" />
+      </section>
 
-  return <>
-    <div className="analytics-toolbar">
-      <div><p className="text-xs font-semibold">Escopo dos containers</p><p className="mt-1 text-[10px] text-[var(--muted)]">A consulta usa apenas componentes etiquetados no Docker.</p></div>
-      <Select className="w-full sm:w-[220px]" value={filter} onChange={(event) => onFilterChange(event.target.value as ContainerFilter)} aria-label="Selecionar container"><option value="all">Todos os containers</option><option value="api">API</option><option value="database">PostgreSQL</option><option value="redis">Redis</option></Select>
-    </div>
+      <section className="panel overflow-hidden">
+        <form className="container-catalog-filters" key={project + ":" + search} onSubmit={submitFilters}>
+          <div className="container-state-control" role="group" aria-label="Estado dos containers">
+            {(["running", "stopped", "all"] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={state === value ? "is-active" : ""}
+                aria-pressed={state === value}
+                onClick={() => onQueryChange({ state: value === "running" ? null : value, page: null })}
+              >
+                {value === "running" ? "Em execucao" : value === "stopped" ? "Parados" : "Todos"}
+              </button>
+            ))}
+          </div>
 
-    <section className="grid gap-4 lg:grid-cols-3">
-      {components.map((item) => <article key={item.component} className="panel p-5"><div className="flex items-start justify-between"><span className="grid h-10 w-10 place-items-center rounded-md bg-[var(--accent-soft)] text-[var(--accent)]"><Box size={18} /></span><StatusBadge status={item.status} /></div><h2 className="mt-4 text-sm font-semibold">{componentLabel(item.component)}</h2><p className="mt-1 mono text-[var(--muted)]">{item.name || item.containerId || item.component}</p><div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-[var(--border)] pt-4"><ContainerValue label="CPU" value={formatPercent(item.cpuPercent)} /><ContainerValue label="Memoria" value={formatPercent(item.memoryPercent)} /><ContainerValue label="Uptime" value={formatDuration(item.uptimeSeconds)} /><ContainerValue label="Reinicios" value={formatNumber(item.restartCount, 0)} /><ContainerValue label="PIDs" value={formatNumber(item.pids, 0)} /><ContainerValue label="Camada" value={formatBytes(item.writableLayerBytes)} /></div></article>)}
-    </section>
+          <div className="container-filter-fields">
+            <label className="container-search-field">
+              <Search size={15} aria-hidden="true" />
+              <Input name="search" defaultValue={search} maxLength={100} placeholder="Buscar nome, imagem, projeto ou servico" aria-label="Buscar containers" />
+            </label>
+            <Input name="project" defaultValue={project} maxLength={100} placeholder="Projeto Compose exato" aria-label="Filtrar por projeto Compose" />
+            <Button type="submit" variant="secondary" icon={<Search size={15} />}>Aplicar</Button>
+            {search || project ? (
+              <Button type="button" variant="ghost" icon={<FilterX size={15} />} onClick={() => onQueryChange({ search: null, project: null, page: null })}>Limpar</Button>
+            ) : null}
+          </div>
+        </form>
 
-    {components.length === 1 ? <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><KpiCard label="Memoria utilizada" value={formatBytes(components[0].memoryUsedBytes)} detail={`Limite ${formatBytes(components[0].memoryLimitBytes)}`} icon={<MemoryStick size={18} />} status={components[0].status} /><KpiCard label="CPU" value={formatPercent(components[0].cpuPercent)} detail={`${formatNumber(components[0].pids, 0)} processos`} icon={<Cpu size={18} />} accent="sky" /><KpiCard label="Rede acumulada" value={formatBytes(networkTotal)} detail={`RX ${formatBytes(components[0].networkRxBytes)} | TX ${formatBytes(components[0].networkTxBytes)}`} icon={<Network size={18} />} /><KpiCard label="Reinicios" value={formatNumber(components[0].restartCount, 0)} detail={`Uptime ${formatDuration(components[0].uptimeSeconds)}`} icon={<RotateCcw size={18} />} accent="neutral" /></section> : null}
+        <div className="data-table-wrap">
+          <table className="data-table analytics-table container-catalog-table min-w-[1240px]">
+            <thead>
+              <tr>
+                <th>Container</th>
+                <th>Estado</th>
+                <th>Projeto / servico</th>
+                <th>CPU</th>
+                <th>Memoria</th>
+                <th>Uptime</th>
+                <th>Reinicios</th>
+                <th>Ultima amostra</th>
+                <th aria-label="Acoes" />
+              </tr>
+            </thead>
+            <tbody>
+              {metrics.items.map((item) => (
+                <ContainerRow key={item.id} item={item} href={detailHref(item.id)} />
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-    <section className="grid gap-4 xl:grid-cols-2">
-      <ChartPanel title="CPU dos containers" subtitle="Percentual calculado pelo Docker Stats" empty={!chartData.length}>
-        <MetricChart data={chartData} range={range} series={cpuSeries} valueFormatter={(value) => formatPercent(value)} axisFormatter={(value) => `${formatNumber(value, 0)}%`} />
-      </ChartPanel>
-      <ChartPanel title="Memoria dos containers" subtitle="Uso em relacao ao limite de cada container" empty={!chartData.length}>
-        <MetricChart data={chartData} range={range} series={memorySeries} valueFormatter={(value) => formatPercent(value)} axisFormatter={(value) => `${formatNumber(value, 0)}%`} />
-      </ChartPanel>
-      <ChartPanel title="Rede acumulada" subtitle={selectedKey ? "Bytes recebidos e enviados desde o inicio do container" : "Soma de RX e TX por container"} empty={!chartData.length}>
-        <MetricChart data={chartData} range={range} series={networkSeries} valueFormatter={(value) => formatBytes(value)} axisFormatter={(value) => formatBytes(value)} />
-      </ChartPanel>
-      <ChartPanel title="Armazenamento do container" subtitle={selectedKey ? "Block I/O e camada gravavel acumulados" : "Camada gravavel reportada por container"} empty={!chartData.length}>
-        <MetricChart data={chartData} range={range} series={storageSeries} valueFormatter={(value) => formatBytes(value)} axisFormatter={(value) => formatBytes(value)} />
-      </ChartPanel>
-    </section>
+        {!metrics.items.length ? <EmptyState text="Nenhum container corresponde aos filtros atuais." /> : null}
 
-    <section className="panel overflow-hidden"><div className="panel-header"><div><h2 className="panel-title">Volumes utilizados</h2><p className="panel-subtitle">Espaco ocupado reportado pelo Docker System DF, sem inferir capacidade</p></div><HardDrive size={17} className="text-[var(--accent)]" /></div><div className="data-table-wrap"><table className="data-table analytics-table min-w-[680px]"><thead><tr><th>Container</th><th>Volume</th><th>Destino</th><th>Utilizado</th></tr></thead><tbody>{components.flatMap((component) => (component.volumes || []).map((volume) => <tr key={`${component.component}:${volume.name}:${volume.destination}`}><td className="font-semibold">{componentLabel(component.component)}</td><td className="mono">{volume.name}</td><td className="mono text-[var(--muted)]">{volume.destination}</td><td>{formatBytes(volume.usedBytes)}</td></tr>))}</tbody></table></div></section>
-  </>;
+        <footer className="catalog-pagination">
+          <p>
+            {metrics.meta.pagination.total
+              ? (metrics.meta.pagination.skip + 1) + "-" + (metrics.meta.pagination.skip + metrics.items.length) + " de " + metrics.meta.pagination.total
+              : "0 resultados"}
+          </p>
+          <div className="catalog-page-size">
+            <span>Itens por pagina</span>
+            <Select value={take} onChange={(event) => onQueryChange({ take: event.target.value === "25" ? null : event.target.value, page: null })} aria-label="Itens por pagina">
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </Select>
+          </div>
+          <nav className="catalog-pages" aria-label="Paginacao dos containers">
+            <button type="button" onClick={() => onQueryChange({ page: null })} disabled={currentPage === 1} aria-label="Primeira pagina"><ChevronsLeft size={14} /></button>
+            <button type="button" onClick={() => onQueryChange({ page: currentPage - 1 <= 1 ? null : String(currentPage - 1) })} disabled={currentPage === 1} aria-label="Pagina anterior"><ChevronLeft size={14} /></button>
+            {pages.map((item, index) => item === "ellipsis"
+              ? <span key={"ellipsis-" + index}>...</span>
+              : <button key={item} type="button" className={item === currentPage ? "is-active" : ""} aria-current={item === currentPage ? "page" : undefined} onClick={() => onQueryChange({ page: item === 1 ? null : String(item) })}>{item}</button>)}
+            <button type="button" onClick={() => onQueryChange({ page: String(currentPage + 1) })} disabled={currentPage === totalPages} aria-label="Proxima pagina"><ChevronRight size={14} /></button>
+            <button type="button" onClick={() => onQueryChange({ page: totalPages === 1 ? null : String(totalPages) })} disabled={currentPage === totalPages} aria-label="Ultima pagina"><ChevronsRight size={14} /></button>
+          </nav>
+        </footer>
+      </section>
+    </>
+  );
 }
 
-function createSeries(keys: string[], metric: string, prefix?: string): ChartSeries[] {
-  const label = prefix || (metric === "cpu" ? "CPU" : "Memoria");
-  return keys.map((key, index) => ({ key: `${key}:${metric}`, label: `${label} ${componentLabel(key).replace("Container ", "")}`, color: colors[index % colors.length], kind: index === 0 ? "area" : "line" }));
+function ContainerRow({ item, href }: { item: ContainerCatalogItem; href: string }) {
+  const status = item.current?.status || (item.state === "running" ? item.health || "up" : "down");
+  return (
+    <tr>
+      <td>
+        <Link href={href} className="table-primary container-name-link">{item.name}</Link>
+        <p className="table-secondary mono" title={item.image}>{item.image}</p>
+      </td>
+      <td>
+        <StatusBadge status={status} />
+        <p className="table-secondary">{dockerStateLabel(item.state)}{item.health ? " / " + statusLabel(item.health) : ""}</p>
+      </td>
+      <td>
+        <p className="table-primary">{item.compose?.project || "Standalone"}</p>
+        <p className="table-secondary">{item.compose ? (item.compose.service || "-") + (item.compose.containerNumber ? " #" + item.compose.containerNumber : "") : "Container externo ao Compose"}</p>
+      </td>
+      <td>{formatPercent(item.current?.cpuPercent)}</td>
+      <td>
+        <p>{formatBytes(item.current?.memoryUsedBytes)}</p>
+        <p className="table-secondary">{formatPercent(item.current?.memoryPercent)} de {formatBytes(item.current?.memoryLimitBytes)}</p>
+      </td>
+      <td>{formatDuration(item.current?.uptimeSeconds)}</td>
+      <td>{formatNumber(item.current?.restartCount, 0)}</td>
+      <td>
+        <p>{formatDateTime(item.current?.sampledAt)}</p>
+        <p className="table-secondary">{item.current ? "Worker de metricas" : "Sem amostra"}</p>
+      </td>
+      <td>
+        <Link href={href} className="icon-button" title="Abrir detalhes" aria-label={"Abrir detalhes de " + item.name}><ExternalLink size={15} /></Link>
+      </td>
+    </tr>
+  );
 }
 
-function ContainerValue({ label, value }: { label: string; value: string }) {
-  return <div><p className="text-[9px] font-semibold uppercase text-[var(--muted)]">{label}</p><p className="mt-1 text-xs font-semibold">{value}</p></div>;
+function paginationWindow(current: number, total: number): Array<number | "ellipsis"> {
+  if (total <= 5) return Array.from({ length: total }, (_, index) => index + 1);
+  const values = new Set([1, total, current - 1, current, current + 1].filter((value) => value >= 1 && value <= total));
+  const sorted = [...values].sort((left, right) => left - right);
+  const result: Array<number | "ellipsis"> = [];
+  sorted.forEach((value, index) => {
+    if (index > 0 && value - sorted[index - 1] > 1) result.push("ellipsis");
+    result.push(value);
+  });
+  return result;
 }

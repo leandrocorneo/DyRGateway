@@ -3,27 +3,26 @@
 import axios from "axios";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback } from "react";
-import { Activity, Boxes, Database, Gauge, HeartPulse, RefreshCw, Server, Timer, TriangleAlert, Waypoints } from "lucide-react";
+import { Activity, Boxes, Database, Gauge, HeartPulse, RefreshCw, Server, TriangleAlert, Waypoints } from "lucide-react";
 import { api } from "@/lib/apiClient";
 import { Button, PageHeader } from "@/app/components/ui";
 import { DataFreshness, KpiCard, MonitoringTabs, RangeSelector, StatusBadge, type MonitoringTab } from "@/app/components/monitoring";
 import { componentLabel, formatDateTime, formatDuration, formatLatency, formatPercent, isMonitoringRange } from "@/lib/monitoring";
 import { usePollingData } from "@/lib/usePollingData";
-import type { ApiMonitoringResponse, DatabaseMonitoringResponse, HealthLive, HealthReady, InfrastructureMonitoringResponse, MonitoringOverviewResponse, MonitoringRange, RedisMonitoringResponse } from "@/lib/types";
+import type { ApiMonitoringResponse, ContainerCatalogResponse, ContainerCatalogState, DatabaseMonitoringResponse, HealthLive, HealthReady, MonitoringOverviewResponse, MonitoringRange, RedisMonitoringResponse } from "@/lib/types";
 import ApiMonitoringTab from "./ApiMonitoringTab";
 import RedisMonitoringTab from "./RedisMonitoringTab";
 import DatabaseMonitoringTab from "./DatabaseMonitoringTab";
 import ContainersMonitoringTab from "./ContainersMonitoringTab";
 
 type HealthTab = "overview" | "api" | "redis" | "database" | "containers";
-type ContainerFilter = "all" | "api" | "database" | "redis";
 
 type TabPayload =
   | { tab: "overview"; live: HealthLive; ready: HealthReady; overview: MonitoringOverviewResponse }
   | { tab: "api"; metrics: ApiMonitoringResponse; endpoints: ApiMonitoringResponse }
   | { tab: "redis"; metrics: RedisMonitoringResponse }
   | { tab: "database"; metrics: DatabaseMonitoringResponse }
-  | { tab: "containers"; metrics: InfrastructureMonitoringResponse };
+  | { tab: "containers"; metrics: ContainerCatalogResponse };
 
 const tabs: MonitoringTab[] = [
   { value: "overview", label: "Visao geral", icon: <HeartPulse size={15} /> },
@@ -34,7 +33,16 @@ const tabs: MonitoringTab[] = [
 ];
 
 const isTab = (value: string | null): value is HealthTab => tabs.some((tab) => tab.value === value);
-const isContainerFilter = (value: string | null): value is ContainerFilter => ["all", "api", "database", "redis"].includes(value || "");
+const isContainerState = (value: string | null): value is ContainerCatalogState => ["running", "stopped", "all"].includes(value || "");
+const validTextFilter = (value: string | null) => {
+  const parsed = value?.trim() || "";
+  return parsed.length <= 100 ? parsed : "";
+};
+const validPage = (value: string | null) => {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
+};
+const validTake = (value: string | null) => value === "50" ? 50 : value === "100" ? 100 : 25;
 
 export default function HealthPage() {
   return <Suspense fallback={<HealthLoading />}><HealthWorkspace /></Suspense>;
@@ -46,10 +54,13 @@ function HealthWorkspace() {
   const pathname = usePathname();
   const rangeParam = searchParams.get("range");
   const tabParam = searchParams.get("tab");
-  const containerParam = searchParams.get("container");
   const range: MonitoringRange = isMonitoringRange(rangeParam) ? rangeParam : "1h";
   const tab: HealthTab = isTab(tabParam) ? tabParam : "overview";
-  const container: ContainerFilter = isContainerFilter(containerParam) ? containerParam : "all";
+  const containerState: ContainerCatalogState = isContainerState(searchParams.get("state")) ? searchParams.get("state") as ContainerCatalogState : "running";
+  const project = validTextFilter(searchParams.get("project"));
+  const search = validTextFilter(searchParams.get("search"));
+  const page = validPage(searchParams.get("page"));
+  const take = validTake(searchParams.get("take"));
 
   const loadReady = useCallback(async (signal: AbortSignal) => {
     try {
@@ -78,27 +89,39 @@ function HealthWorkspace() {
     }
     if (tab === "redis") return { tab, metrics: (await api.get<RedisMonitoringResponse>("/monitoring/redis", { params: { range }, signal })).data };
     if (tab === "database") return { tab, metrics: (await api.get<DatabaseMonitoringResponse>("/monitoring/database", { params: { range }, signal })).data };
-    return { tab, metrics: (await api.get<InfrastructureMonitoringResponse>("/monitoring/containers", { params: { range, ...(container !== "all" ? { container } : {}) }, signal })).data };
-  }, [container, loadReady, range, tab]);
+    return {
+      tab,
+      metrics: (await api.get<ContainerCatalogResponse>("/monitoring/containers", {
+        params: {
+          state: containerState,
+          skip: (page - 1) * take,
+          take,
+          ...(project ? { project } : {}),
+          ...(search ? { search } : {}),
+        },
+        signal,
+      })).data,
+    };
+  }, [containerState, loadReady, page, project, range, search, tab, take]);
 
-  const state = usePollingData(`health:${tab}:${range}:${container}`, loader);
+  const state = usePollingData("health:" + tab + ":" + range + ":" + containerState + ":" + project + ":" + search + ":" + page + ":" + take, loader);
   const updateQuery = (values: Record<string, string | null>) => {
     const query = new URLSearchParams(searchParams.toString());
     Object.entries(values).forEach(([key, value]) => value ? query.set(key, value) : query.delete(key));
     router.replace(`${pathname}?${query.toString()}`, { scroll: false });
   };
 
-  const meta = state.data?.tab === "overview" ? state.data.overview.meta : state.data?.metrics.meta;
+  const meta = state.data?.tab === "overview" ? state.data.overview.meta : state.data?.tab === "containers" ? undefined : state.data?.metrics.meta;
 
   return (
     <div className="app-page">
       <PageHeader eyebrow="Monitoramento" title="Saude do sistema" description="Disponibilidade, desempenho e consumo dos componentes que sustentam o gateway." actions={<Button variant="secondary" icon={<RefreshCw size={15} className={state.refreshing ? "animate-spin" : ""} />} onClick={state.refresh} disabled={state.loading || state.refreshing}>Atualizar</Button>} />
 
       <section className="panel overflow-hidden">
-        <MonitoringTabs tabs={tabs} value={tab} onChange={(value) => updateQuery({ tab: value, container: value === "containers" ? container : null })} />
+        <MonitoringTabs tabs={tabs} value={tab} onChange={(value) => updateQuery({ tab: value, state: null, project: null, search: null, page: null, take: null })} />
         <div className="analytics-toolbar px-4 py-3 sm:px-5">
           <DataFreshness updatedAt={state.updatedAt} refreshing={state.refreshing} partial={meta?.partial} />
-          <RangeSelector value={range} onChange={(value) => updateQuery({ range: value })} />
+          {tab !== "containers" ? <RangeSelector value={range} onChange={(value) => updateQuery({ range: value })} /> : null}
         </div>
       </section>
 
@@ -108,7 +131,25 @@ function HealthWorkspace() {
       {state.data?.tab === "api" ? <ApiMonitoringTab metrics={state.data.metrics} endpoints={state.data.endpoints} range={range} /> : null}
       {state.data?.tab === "redis" ? <RedisMonitoringTab metrics={state.data.metrics} range={range} /> : null}
       {state.data?.tab === "database" ? <DatabaseMonitoringTab metrics={state.data.metrics} range={range} /> : null}
-      {state.data?.tab === "containers" ? <ContainersMonitoringTab metrics={state.data.metrics} range={range} filter={container} onFilterChange={(value) => updateQuery({ container: value === "all" ? null : value })} /> : null}
+      {state.data?.tab === "containers" ? <ContainersMonitoringTab
+        metrics={state.data.metrics}
+        state={containerState}
+        project={project}
+        search={search}
+        page={page}
+        take={take}
+        onQueryChange={updateQuery}
+        detailHref={(id) => {
+          const query = new URLSearchParams();
+          query.set("range", range);
+          if (containerState !== "running") query.set("state", containerState);
+          if (project) query.set("project", project);
+          if (search) query.set("search", search);
+          if (page > 1) query.set("page", String(page));
+          if (take !== 25) query.set("take", String(take));
+          return "/health/containers/" + encodeURIComponent(id) + "?" + query.toString();
+        }}
+      /> : null}
     </div>
   );
 }

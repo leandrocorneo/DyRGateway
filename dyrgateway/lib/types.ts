@@ -156,11 +156,6 @@ export type SlowQueryMetric = {
   totalMs: number;
 };
 
-export type ContainerVolumeMetric = {
-  name: string;
-  destination: string;
-  usedBytes: number | null;
-};
 
 export type InfrastructureMetrics = {
   latencyMs?: number | null;
@@ -193,19 +188,6 @@ export type InfrastructureMetrics = {
   blockWriteTimeMs?: number;
   slowQueries?: SlowQueryMetric[];
   replicaLag?: number | null;
-  containerId?: string;
-  name?: string;
-  uptimeSeconds?: number;
-  restartCount?: number;
-  cpuPercent?: number;
-  pids?: number;
-  networkRxBytes?: number;
-  networkTxBytes?: number;
-  blockReadBytes?: number;
-  blockWriteBytes?: number;
-  writableLayerBytes?: number;
-  volumes?: ContainerVolumeMetric[];
-  collectionError?: boolean;
 };
 
 export type InfrastructureSnapshot = InfrastructureMetrics & {
@@ -270,4 +252,113 @@ export type MonitoringOverviewResponse = {
   };
   series: ApiMetricPoint[];
   breakdown: InfrastructureSnapshot[];
+};
+
+export type ContainerCatalogState = "running" | "stopped" | "all";
+
+export type MonitoringPagination = {
+  skip: number;
+  take: number;
+  total: number;
+  hasMore: boolean;
+};
+
+export type ContainerComposeIdentity = {
+  project: string;
+  service: string | null;
+  containerNumber: number | null;
+};
+
+export type ContainerMount = {
+  name: string;
+  destination: string;
+};
+
+export type ContainerVolumeUsage = {
+  name: string;
+  usedBytes: number | null;
+};
+
+export type ContainerMetrics = {
+  uptimeSeconds: number | null;
+  restartCount: number | null;
+  cpuPercent: number | null;
+  memoryUsedBytes: number | null;
+  memoryLimitBytes: number | null;
+  memoryPercent: number | null;
+  pids: number | null;
+  networkRxBytes: number | null;
+  networkTxBytes: number | null;
+  blockReadBytes: number | null;
+  blockWriteBytes: number | null;
+  writableLayerBytes: number | null;
+  volumes: ContainerVolumeUsage[];
+  collectionError: boolean;
+  storageCollectionError: boolean;
+};
+
+export type ContainerMetricSnapshot = ContainerMetrics & {
+  sampledAt: string;
+  status: MetricStatus;
+  instanceId: string | null;
+};
+
+export type MonitoredContainer = {
+  id: string;
+  identityKey: string;
+  identitySource: string;
+  name: string;
+  image: string;
+  compose: ContainerComposeIdentity | null;
+  currentContainerId: string;
+  state: string;
+  health: string | null;
+  mounts: ContainerMount[];
+  containerCreatedAt: string | null;
+  instanceStartedAt: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+
+export type ContainerCatalogItem = MonitoredContainer & {
+  current: ContainerMetricSnapshot | null;
+};
+
+export type ContainerCatalogResponse = {
+  meta: {
+    generatedAt: string;
+    pagination: MonitoringPagination;
+    filters: {
+      state: ContainerCatalogState;
+      project: string | null;
+      search: string | null;
+    };
+  };
+  summary: {
+    total: number;
+    running: number;
+    stopped: number;
+    healthy: number;
+    unhealthy: number;
+    unknown: number;
+  };
+  items: ContainerCatalogItem[];
+};
+
+export type ContainerHistoryPoint = ContainerMetrics & {
+  timestamp: string;
+  status: MetricStatus;
+  instanceId: string | null;
+};
+
+export type ContainerHistoryResponse = {
+  meta: MonitoringMeta & { pagination: MonitoringPagination };
+  container: MonitoredContainer;
+  current: ContainerMetricSnapshot | null;
+  summary: {
+    points: number;
+    firstSampleAt: string | null;
+    lastSampleAt: string | null;
+  };
+  series: ContainerHistoryPoint[];
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Area, Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AlertCircle, Clock3, LoaderCircle } from "lucide-react";
 import { formatChartTime, monitoringRanges, statusLabel, statusTone } from "@/lib/monitoring";
 import type { MetricStatus, MonitoringRange } from "@/lib/types";
@@ -57,6 +57,11 @@ export type ChartSeries = {
   stackId?: string;
 };
 
+export type ChartMarker = {
+  timestamp: string;
+  label: string;
+};
+
 type ChartDatum = Record<string, string | number | null | undefined>;
 
 export function MetricChart({
@@ -65,6 +70,7 @@ export function MetricChart({
   range,
   valueFormatter,
   axisFormatter,
+  markers = [],
   height = 280,
 }: {
   data: ChartDatum[];
@@ -72,6 +78,7 @@ export function MetricChart({
   range: MonitoringRange;
   valueFormatter: (value: number | null, key?: string) => string;
   axisFormatter?: (value: number) => string;
+  markers?: ChartMarker[];
   height?: number;
 }) {
   const [hidden, setHidden] = useState<string[]>([]);
@@ -93,6 +100,7 @@ export function MetricChart({
             <CartesianGrid stroke="var(--border)" vertical={false} />
             <XAxis dataKey="timestamp" tickFormatter={(value) => formatChartTime(String(value), range)} minTickGap={28} tick={{ fill: "var(--muted)", fontSize: 10 }} axisLine={false} tickLine={false} />
             <YAxis width={52} tickFormatter={axisFormatter} tick={{ fill: "var(--muted)", fontSize: 10 }} axisLine={false} tickLine={false} />
+            {markers.map((marker) => <ReferenceLine key={marker.timestamp + ":" + marker.label} x={marker.timestamp} stroke="var(--border-strong)" strokeDasharray="4 4" label={{ value: marker.label, position: "insideTopRight", fill: "var(--muted)", fontSize: 9 }} />)}
             <Tooltip cursor={{ stroke: "var(--border-strong)", strokeDasharray: "3 3" }} content={({ active, payload, label }) => {
               if (!active || !payload?.length) return null;
               return <div className="chart-tooltip"><p>{formatChartTime(String(label), range)}</p>{payload.map((item) => <div key={String(item.dataKey)}><span><i style={{ backgroundColor: item.color }} />{item.name}</span><strong>{valueFormatter(typeof item.value === "number" ? item.value : null, String(item.dataKey))}</strong></div>)}</div>;
