@@ -26,6 +26,7 @@ Componentes principais:
 
 - `app/components/ui.tsx`: campos, botões, badges, feedback e estados vazios.
 - `app/components/monitoring.tsx`: ranges, abas, KPIs, status e gráficos.
+- `app/components/ContainerOrchestrationActions.tsx`: start direto, confirmação de stop e erros operacionais.
 - `app/health/*MonitoringTab.tsx`: visualizações especializadas por subsistema.
 
 ## Dados e autenticação
@@ -40,6 +41,7 @@ Não há store global. Adicione estado compartilhado somente quando existir nece
 
 - Dashboard consome `/monitoring/overview` e mantém resumos de aplicações, domínios e serviços.
 - Saúde carrega somente os endpoints da aba ativa; o catálogo global usa `/monitoring/containers` e o detalhe dedicado usa `/monitoring/containers/:id`.
+- Catálogo e detalhe usam as permissões `orchestration` da API e atualizam o estado retornado antes da confirmação pelo polling.
 - Ranges aceitos: `15m`, `1h`, `6h`, `24h`, `7d`, `15d`.
 - Lacunas recebem pontos com valores nulos e `connectNulls=false`.
 - Percentuais e unidades são formatados no frontend, mas não são substituídos por estimativas.

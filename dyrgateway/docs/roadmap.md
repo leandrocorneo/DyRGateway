@@ -8,9 +8,9 @@ Itens desta página não possuem suporte completo. Não criar mocks, botões ino
 - Recuperação de senha.
 - Listagem, edição e exclusão de usuários.
 - Logs e busca por request ID.
+- Logs de containers em tempo real por transporte autenticado.
 - Auditoria administrativa.
 - Integração Hostinger/VPS.
-- Parar/retomar aplicação.
 - Teste de conectividade de serviço.
 - Listagem de service types.
 - Alertas e incidentes em tempo real.

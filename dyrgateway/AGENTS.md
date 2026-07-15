@@ -33,6 +33,7 @@ Painel administrativo Next.js para configurar e observar o DyRGateway. A API viv
 - Build: `docker exec next-app npm run build`
 - Execute Docker Compose a partir de `/home/leandro/DyRGateway/dyrgateway` no WSL.
 - Não execute npm no host quando o ambiente do container estiver disponível.
+- Valores concretos de ambiente devem existir somente no `.env`; arquivos Compose devem apenas referenciar `${VAR}`, sem duplicar valores, defaults ou segredos inline.
 - Não faça push sem solicitação explícita.
 
 ## Regras de produto e contratos
