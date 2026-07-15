@@ -255,6 +255,15 @@ export type MonitoringOverviewResponse = {
 };
 
 export type ContainerCatalogState = "running" | "stopped" | "all";
+export type ContainerAction = "start" | "stop";
+export type ContainerOrchestrationReason = "protected" | "already-running" | "already-stopped" | "unsupported-state" | null;
+
+export type ContainerOrchestration = {
+  protected: boolean;
+  canStart: boolean;
+  canStop: boolean;
+  reason: ContainerOrchestrationReason;
+};
 
 export type MonitoringPagination = {
   skip: number;
@@ -318,6 +327,22 @@ export type MonitoredContainer = {
   instanceStartedAt: string | null;
   firstSeenAt: string;
   lastSeenAt: string;
+  orchestration: ContainerOrchestration;
+};
+
+export type ContainerActionResponse = {
+  action: ContainerAction;
+  changed: boolean;
+  completedAt: string;
+  container: {
+    id: string;
+    name: string;
+    instanceId: string;
+    previousState: string;
+    state: string;
+    health: string | null;
+  };
+  orchestration: ContainerOrchestration;
 };
 
 export type ContainerCatalogItem = MonitoredContainer & {

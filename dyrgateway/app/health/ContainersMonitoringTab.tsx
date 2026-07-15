@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import {
   Boxes,
   ChevronLeft,
@@ -17,6 +17,7 @@ import {
   Search,
   ShieldAlert,
 } from "lucide-react";
+import ContainerOrchestrationActions from "@/app/components/ContainerOrchestrationActions";
 import { KpiCard, StatusBadge } from "@/app/components/monitoring";
 import { Button, EmptyState, Input, Select } from "@/app/components/ui";
 import {
@@ -29,6 +30,7 @@ import {
   statusLabel,
 } from "@/lib/monitoring";
 import type {
+  ContainerActionResponse,
   ContainerCatalogItem,
   ContainerCatalogResponse,
   ContainerCatalogState,
@@ -43,6 +45,7 @@ type Props = {
   page: number;
   take: number;
   onQueryChange: (values: Record<string, string | null>) => void;
+  onRefresh: () => void | Promise<void>;
   detailHref: (id: string) => string;
 };
 
@@ -54,11 +57,18 @@ export default function ContainersMonitoringTab({
   page,
   take,
   onQueryChange,
+  onRefresh,
   detailHref,
 }: Props) {
+  const [actionOverrides, setActionOverrides] = useState<Record<string, ContainerActionResponse>>({});
   const totalPages = Math.max(1, Math.ceil(metrics.meta.pagination.total / take));
   const currentPage = Math.min(page, totalPages);
   const pages = paginationWindow(currentPage, totalPages);
+
+  const handleCompleted = (response: ContainerActionResponse) => {
+    setActionOverrides((current) => ({ ...current, [response.container.id]: response }));
+    void onRefresh();
+  };
 
   const submitFilters = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -128,9 +138,25 @@ export default function ContainersMonitoringTab({
               </tr>
             </thead>
             <tbody>
-              {metrics.items.map((item) => (
-                <ContainerRow key={item.id} item={item} href={detailHref(item.id)} />
-              ))}
+              {metrics.items.map((item) => {
+                const override = actionOverrides[item.id];
+                const displayedItem = override ? {
+                  ...item,
+                  state: override.container.state,
+                  health: override.container.health,
+                  currentContainerId: override.container.instanceId,
+                  orchestration: override.orchestration,
+                } : item;
+                return (
+                  <ContainerRow
+                    key={item.id}
+                    item={displayedItem}
+                    href={detailHref(item.id)}
+                    onCompleted={handleCompleted}
+                    onRemoved={() => void onRefresh()}
+                  />
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -166,8 +192,18 @@ export default function ContainersMonitoringTab({
   );
 }
 
-function ContainerRow({ item, href }: { item: ContainerCatalogItem; href: string }) {
-  const status = item.current?.status || (item.state === "running" ? item.health || "up" : "down");
+function ContainerRow({
+  item,
+  href,
+  onCompleted,
+  onRemoved,
+}: {
+  item: ContainerCatalogItem;
+  href: string;
+  onCompleted: (response: ContainerActionResponse) => void;
+  onRemoved: () => void;
+}) {
+  const status = item.state === "running" ? item.health || "up" : "down";
   return (
     <tr>
       <td>
@@ -194,7 +230,10 @@ function ContainerRow({ item, href }: { item: ContainerCatalogItem; href: string
         <p className="table-secondary">{item.current ? "Worker de metricas" : "Sem amostra"}</p>
       </td>
       <td>
-        <Link href={href} className="icon-button" title="Abrir detalhes" aria-label={"Abrir detalhes de " + item.name}><ExternalLink size={15} /></Link>
+        <div className="container-row-actions">
+          <ContainerOrchestrationActions container={item} compact onCompleted={onCompleted} onRemoved={onRemoved} />
+          <Link href={href} className="icon-button" title="Abrir detalhes" aria-label={"Abrir detalhes de " + item.name}><ExternalLink size={15} /></Link>
+        </div>
       </td>
     </tr>
   );

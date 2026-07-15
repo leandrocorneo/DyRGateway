@@ -17,6 +17,7 @@ import {
   TerminalSquare,
   TriangleAlert,
 } from "lucide-react";
+import ContainerOrchestrationActions from "@/app/components/ContainerOrchestrationActions";
 import {
   ChartPanel,
   DataFreshness,
@@ -41,6 +42,7 @@ import {
   statusLabel,
 } from "@/lib/monitoring";
 import type {
+  ContainerActionResponse,
   ContainerHistoryPoint,
   ContainerHistoryResponse,
   MonitoringRange,
@@ -63,6 +65,8 @@ function ContainerDetailWorkspace() {
   const pathname = usePathname();
   const router = useRouter();
   const id = params.id;
+  const [actionOverride, setActionOverride] = useState<ContainerActionResponse | null>(null);
+  const [removed, setRemoved] = useState(false);
   const range: MonitoringRange = isMonitoringRange(searchParams.get("range")) ? searchParams.get("range") as MonitoringRange : "1h";
 
   const loader = useCallback(async (signal: AbortSignal): Promise<DetailPayload> => {
@@ -100,7 +104,7 @@ function ContainerDetailWorkspace() {
   };
 
   if (state.loading && !state.data) return <ContainerDetailLoading />;
-  if (state.data?.kind === "not-found") return <ContainerNotFound backHref={backHref} />;
+  if (removed || state.data?.kind === "not-found") return <ContainerNotFound backHref={backHref} />;
   if (!state.data || state.data.kind !== "ready") {
     return (
       <div className="app-page">
@@ -111,9 +115,16 @@ function ContainerDetailWorkspace() {
   }
 
   const metrics = state.data.metrics;
-  const container = metrics.container;
+  const storedContainer = metrics.container;
+  const container = actionOverride ? {
+    ...storedContainer,
+    state: actionOverride.container.state,
+    health: actionOverride.container.health,
+    currentContainerId: actionOverride.container.instanceId,
+    orchestration: actionOverride.orchestration,
+  } : storedContainer;
   const current = metrics.current;
-  const currentStatus = current?.status || (container.state === "running" ? container.health || "up" : "down");
+  const currentStatus = container.state === "running" ? container.health || "up" : "down";
   const chart = prepareChartData(metrics.series, metrics.meta.stepSeconds);
   const volumes = container.mounts.map((mount) => ({
     ...mount,
@@ -130,6 +141,14 @@ function ContainerDetailWorkspace() {
         actions={
           <>
             <Link className="button button-secondary" href={backHref}><ArrowLeft size={15} />Voltar</Link>
+            <ContainerOrchestrationActions
+              container={container}
+              onCompleted={(response) => {
+                setActionOverride(response);
+                void state.refresh();
+              }}
+              onRemoved={() => setRemoved(true)}
+            />
             <Button variant="secondary" icon={<RefreshCw size={15} className={state.refreshing ? "animate-spin" : ""} />} onClick={state.refresh} disabled={state.loading || state.refreshing}>Atualizar</Button>
           </>
         }

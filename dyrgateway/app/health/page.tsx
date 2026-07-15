@@ -139,6 +139,7 @@ function HealthWorkspace() {
         page={page}
         take={take}
         onQueryChange={updateQuery}
+        onRefresh={state.refresh}
         detailHref={(id) => {
           const query = new URLSearchParams();
           query.set("range", range);
