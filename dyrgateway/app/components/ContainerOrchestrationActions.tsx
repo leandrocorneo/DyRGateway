@@ -21,6 +21,7 @@ import { Button, IconButton } from "./ui";
 type Props = {
   container: Pick<MonitoredContainer, "id" | "name" | "image" | "compose" | "state" | "orchestration">;
   compact?: boolean;
+  disabled?: boolean;
   onCompleted: (response: ContainerActionResponse) => void;
   onRemoved?: () => void;
 };
@@ -54,6 +55,7 @@ const unavailableReason = (container: Props["container"]) => {
 export default function ContainerOrchestrationActions({
   container,
   compact = false,
+  disabled = false,
   onCompleted,
   onRemoved,
 }: Props) {
@@ -104,11 +106,11 @@ export default function ContainerOrchestrationActions({
     if (orchestration.canStart) {
       const label = busy === "start" ? "Iniciando" : "Iniciar container";
       return compact ? (
-        <IconButton label={label} onClick={() => void execute("start")} disabled={busy !== null}>
+        <IconButton label={label} onClick={() => void execute("start")} disabled={disabled || busy !== null}>
           {busy === "start" ? <LoaderCircle size={15} className="animate-spin" /> : <Play size={15} />}
         </IconButton>
       ) : (
-        <Button variant="secondary" icon={busy === "start" ? <LoaderCircle size={15} className="animate-spin" /> : <Play size={15} />} onClick={() => void execute("start")} disabled={busy !== null}>
+        <Button variant="secondary" icon={busy === "start" ? <LoaderCircle size={15} className="animate-spin" /> : <Play size={15} />} onClick={() => void execute("start")} disabled={disabled || busy !== null}>
           {label}
         </Button>
       );
@@ -117,11 +119,11 @@ export default function ContainerOrchestrationActions({
     if (orchestration.canStop) {
       const label = busy === "stop" ? "Parando" : "Parar container";
       return compact ? (
-        <IconButton label={label} className="danger" onClick={() => setConfirmStop(true)} disabled={busy !== null}>
+        <IconButton label={label} className="danger" onClick={() => setConfirmStop(true)} disabled={disabled || busy !== null}>
           {busy === "stop" ? <LoaderCircle size={15} className="animate-spin" /> : <Square size={14} />}
         </IconButton>
       ) : (
-        <Button variant="danger" icon={busy === "stop" ? <LoaderCircle size={15} className="animate-spin" /> : <Square size={14} />} onClick={() => setConfirmStop(true)} disabled={busy !== null}>
+        <Button variant="danger" icon={busy === "stop" ? <LoaderCircle size={15} className="animate-spin" /> : <Square size={14} />} onClick={() => setConfirmStop(true)} disabled={disabled || busy !== null}>
           {label}
         </Button>
       );
@@ -172,7 +174,7 @@ export default function ContainerOrchestrationActions({
                 <p className="eyebrow">Operacao Docker</p>
                 <h2 id={"stop-container-title-" + container.id}>Parar {container.name}</h2>
               </div>
-              <IconButton label="Fechar confirmacao" onClick={closeModal} disabled={busy !== null}>
+              <IconButton label="Fechar confirmacao" onClick={closeModal} disabled={disabled || busy !== null}>
                 <X size={16} />
               </IconButton>
             </header>
@@ -191,13 +193,13 @@ export default function ContainerOrchestrationActions({
             </p>
 
             <footer className="orchestration-modal-actions">
-              <Button variant="secondary" onClick={closeModal} disabled={busy !== null}>Cancelar</Button>
+              <Button variant="secondary" onClick={closeModal} disabled={disabled || busy !== null}>Cancelar</Button>
               <button
                 ref={confirmButtonRef}
                 type="button"
                 className="button button-danger"
                 onClick={() => void execute("stop")}
-                disabled={busy !== null}
+                disabled={disabled || busy !== null}
               >
                 {busy === "stop" ? <LoaderCircle size={15} className="animate-spin" /> : <Square size={14} />}
                 {busy === "stop" ? "Parando container" : "Parar container"}

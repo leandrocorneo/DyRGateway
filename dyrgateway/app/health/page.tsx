@@ -9,7 +9,7 @@ import { Button, PageHeader } from "@/app/components/ui";
 import { DataFreshness, KpiCard, MonitoringTabs, RangeSelector, StatusBadge, type MonitoringTab } from "@/app/components/monitoring";
 import { componentLabel, formatDateTime, formatDuration, formatLatency, formatPercent, isMonitoringRange } from "@/lib/monitoring";
 import { usePollingData } from "@/lib/usePollingData";
-import type { ApiMonitoringResponse, ContainerCatalogResponse, ContainerCatalogState, DatabaseMonitoringResponse, HealthLive, HealthReady, MonitoringOverviewResponse, MonitoringRange, RedisMonitoringResponse } from "@/lib/types";
+import type { ApiMonitoringResponse, ContainerCatalogState, ContainerGroupCatalogResponse, DatabaseMonitoringResponse, HealthLive, HealthReady, MonitoringOverviewResponse, MonitoringRange, RedisMonitoringResponse } from "@/lib/types";
 import ApiMonitoringTab from "./ApiMonitoringTab";
 import RedisMonitoringTab from "./RedisMonitoringTab";
 import DatabaseMonitoringTab from "./DatabaseMonitoringTab";
@@ -22,7 +22,7 @@ type TabPayload =
   | { tab: "api"; metrics: ApiMonitoringResponse; endpoints: ApiMonitoringResponse }
   | { tab: "redis"; metrics: RedisMonitoringResponse }
   | { tab: "database"; metrics: DatabaseMonitoringResponse }
-  | { tab: "containers"; metrics: ContainerCatalogResponse };
+  | { tab: "containers"; metrics: ContainerGroupCatalogResponse };
 
 const tabs: MonitoringTab[] = [
   { value: "overview", label: "Visao geral", icon: <HeartPulse size={15} /> },
@@ -42,7 +42,7 @@ const validPage = (value: string | null) => {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
 };
-const validTake = (value: string | null) => value === "50" ? 50 : value === "100" ? 100 : 25;
+const validTake = (value: string | null) => value === "25" ? 25 : value === "50" ? 50 : 10;
 
 export default function HealthPage() {
   return <Suspense fallback={<HealthLoading />}><HealthWorkspace /></Suspense>;
@@ -56,8 +56,7 @@ function HealthWorkspace() {
   const tabParam = searchParams.get("tab");
   const range: MonitoringRange = isMonitoringRange(rangeParam) ? rangeParam : "1h";
   const tab: HealthTab = isTab(tabParam) ? tabParam : "overview";
-  const containerState: ContainerCatalogState = isContainerState(searchParams.get("state")) ? searchParams.get("state") as ContainerCatalogState : "running";
-  const project = validTextFilter(searchParams.get("project"));
+  const containerState: ContainerCatalogState = isContainerState(searchParams.get("state")) ? searchParams.get("state") as ContainerCatalogState : "all";
   const search = validTextFilter(searchParams.get("search"));
   const page = validPage(searchParams.get("page"));
   const take = validTake(searchParams.get("take"));
@@ -91,20 +90,19 @@ function HealthWorkspace() {
     if (tab === "database") return { tab, metrics: (await api.get<DatabaseMonitoringResponse>("/monitoring/database", { params: { range }, signal })).data };
     return {
       tab,
-      metrics: (await api.get<ContainerCatalogResponse>("/monitoring/containers", {
+      metrics: (await api.get<ContainerGroupCatalogResponse>("/monitoring/container-groups", {
         params: {
           state: containerState,
           skip: (page - 1) * take,
           take,
-          ...(project ? { project } : {}),
           ...(search ? { search } : {}),
         },
         signal,
       })).data,
     };
-  }, [containerState, loadReady, page, project, range, search, tab, take]);
+  }, [containerState, loadReady, page, range, search, tab, take]);
 
-  const state = usePollingData("health:" + tab + ":" + range + ":" + containerState + ":" + project + ":" + search + ":" + page + ":" + take, loader);
+  const state = usePollingData("health:" + tab + ":" + range + ":" + containerState + ":" + search + ":" + page + ":" + take, loader);
   const updateQuery = (values: Record<string, string | null>) => {
     const query = new URLSearchParams(searchParams.toString());
     Object.entries(values).forEach(([key, value]) => value ? query.set(key, value) : query.delete(key));
@@ -134,7 +132,6 @@ function HealthWorkspace() {
       {state.data?.tab === "containers" ? <ContainersMonitoringTab
         metrics={state.data.metrics}
         state={containerState}
-        project={project}
         search={search}
         page={page}
         take={take}
@@ -143,11 +140,10 @@ function HealthWorkspace() {
         detailHref={(id) => {
           const query = new URLSearchParams();
           query.set("range", range);
-          if (containerState !== "running") query.set("state", containerState);
-          if (project) query.set("project", project);
+          if (containerState !== "all") query.set("state", containerState);
           if (search) query.set("search", search);
           if (page > 1) query.set("page", String(page));
-          if (take !== 25) query.set("take", String(take));
+          if (take !== 10) query.set("take", String(take));
           return "/health/containers/" + encodeURIComponent(id) + "?" + query.toString();
         }}
       /> : null}

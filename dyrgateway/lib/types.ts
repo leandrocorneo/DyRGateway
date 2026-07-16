@@ -370,6 +370,80 @@ export type ContainerCatalogResponse = {
   items: ContainerCatalogItem[];
 };
 
+export type ContainerGroupSummary = {
+  total: number;
+  running: number;
+  stopped: number;
+  healthy: number;
+  unhealthy: number;
+  unknown: number;
+};
+
+export type ContainerComposeGroupItem = {
+  kind: "compose";
+  id: string;
+  project: string;
+  summary: ContainerGroupSummary;
+  orchestration: ContainerOrchestration;
+  containers: ContainerCatalogItem[];
+};
+
+export type ContainerStandaloneGroupItem = {
+  kind: "standalone";
+  id: string;
+  container: ContainerCatalogItem;
+};
+
+export type ContainerGroupCatalogItem = ContainerComposeGroupItem | ContainerStandaloneGroupItem;
+
+export type ContainerGroupCatalogResponse = {
+  meta: {
+    generatedAt: string;
+    pagination: MonitoringPagination;
+    filters: {
+      state: ContainerCatalogState;
+      search: string | null;
+    };
+  };
+  summary: {
+    projects: number;
+    standalone: number;
+    containers: number;
+    running: number;
+    stopped: number;
+    healthy: number;
+    unhealthy: number;
+    unknown: number;
+    protectedProjects: number;
+  };
+  items: ContainerGroupCatalogItem[];
+};
+
+export type ContainerGroupActionResult = {
+  containerId: string;
+  name: string;
+  instanceId: string;
+  previousState: string;
+  state: string;
+  health: string | null;
+  status: "changed" | "unchanged" | "failed";
+  orchestration: ContainerOrchestration;
+  error: { code: string; message: string } | null;
+};
+
+export type ContainerGroupActionResponse = {
+  action: ContainerAction;
+  changed: boolean;
+  partial: boolean;
+  completedAt: string;
+  group: {
+    id: string;
+    project: string;
+    summary: ContainerGroupSummary;
+    orchestration: ContainerOrchestration;
+  };
+  results: ContainerGroupActionResult[];
+};
 export type ContainerHistoryPoint = ContainerMetrics & {
   timestamp: string;
   status: MetricStatus;
