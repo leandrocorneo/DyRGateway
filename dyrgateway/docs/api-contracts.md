@@ -49,6 +49,9 @@ O único `serviceTypeId` disponível sem endpoint de catálogo é HTTP: `0000000
 - `GET /monitoring/database?range`
 - `GET /monitoring/containers?state&project&search&skip&take`
 - `GET /monitoring/containers/:id?range&skip&take`
+- `GET /monitoring/container-groups?state&search&skip&take`
+- `POST /monitoring/container-groups/:id/start`
+- `POST /monitoring/container-groups/:id/stop`
 - `POST /monitoring/containers/:id/start`
 - `POST /monitoring/containers/:id/stop`
 
@@ -82,6 +85,17 @@ A resposta do catálogo contém `meta.pagination`, `meta.filters`, `summary` e `
 O detalhe usa o UUID lógico no path e retorna `meta`, `container`, `current`, `summary` e `series`. O histórico é paginado em até 240 pontos por chamada, e cada ponto inclui `instanceId`.
 
 Containers removidos retornam 404. Rede e block I/O permanecem contadores acumulados, e trocas de `instanceId` representam recriações.
+
+## Catálogo agrupado
+
+`GET /monitoring/container-groups` retorna projetos Compose expansíveis e containers standalone como itens individuais. A paginação conta itens de primeiro nível; cada projeto inclui todos os seus containers, resumo de estados/health e permissões agregadas.
+
+- `state` usa `all` por padrão; projetos parcialmente ativos podem aparecer em `running` e `stopped`.
+- `search` pesquisa projeto, nome, imagem e serviço.
+- `take` aceita até 50.
+- O frontend não calcula proteção ou permissões do grupo.
+
+Ações coletivas usam o UUID do grupo e não enviam body. A resposta contém resumo atualizado e resultados `changed`, `unchanged` ou `failed` por container. Falhas parciais continuam sendo resposta `200` com `partial=true`.
 
 ## Orquestração de containers
 

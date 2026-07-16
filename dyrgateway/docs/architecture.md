@@ -40,8 +40,8 @@ Não há store global. Adicione estado compartilhado somente quando existir nece
 ## Monitoramento
 
 - Dashboard consome `/monitoring/overview` e mantém resumos de aplicações, domínios e serviços.
-- Saúde carrega somente os endpoints da aba ativa; o catálogo global usa `/monitoring/containers` e o detalhe dedicado usa `/monitoring/containers/:id`.
-- Catálogo e detalhe usam as permissões `orchestration` da API e atualizam o estado retornado antes da confirmação pelo polling.
+- Saúde carrega somente os endpoints da aba ativa; o catálogo operacional usa `/monitoring/container-groups` e o detalhe individual usa `/monitoring/containers/:id`.
+- Projetos Compose são faixas expansíveis inicialmente recolhidas; standalone permanece no primeiro nível. Grupo e detalhe usam permissões da API e aplicam resultados antes da confirmação pelo polling.
 - Ranges aceitos: `15m`, `1h`, `6h`, `24h`, `7d`, `15d`.
 - Lacunas recebem pontos com valores nulos e `connectNulls=false`.
 - Percentuais e unidades são formatados no frontend, mas não são substituídos por estimativas.
