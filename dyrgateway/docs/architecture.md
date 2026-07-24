@@ -14,6 +14,7 @@
 - `/applications`: CRUD de aplicações.
 - `/domains`: CRUD de domínios.
 - `/services`: CRUD de serviços.
+- `/routing`: visão operacional de domínios, proxy, TLS, containers e portas.
 - `/gateway`: diagnóstico de host e path.
 - `/health`: hub com Visão geral, API, Redis, Banco e Containers.
 - `/users/new`: criação de usuário; não existe listagem.

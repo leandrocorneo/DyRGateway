@@ -41,8 +41,10 @@ export function usePollingData<T>(key: string, loader: (signal: AbortSignal) => 
   }, []);
 
   useEffect(() => {
-    setState(initialState<T>());
-    void run(true);
+    const initialTimer = window.setTimeout(() => {
+      setState(initialState<T>());
+      void run(true);
+    }, 0);
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") void run(false);
     }, intervalMs);
@@ -51,6 +53,7 @@ export function usePollingData<T>(key: string, loader: (signal: AbortSignal) => 
     };
     document.addEventListener("visibilitychange", handleVisibility);
     return () => {
+      window.clearTimeout(initialTimer);
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibility);
       controllerRef.current?.abort();

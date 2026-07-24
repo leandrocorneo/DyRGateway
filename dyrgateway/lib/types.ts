@@ -1,3 +1,45 @@
+
+export type RoutingTlsStatus = "valid" | "invalid" | "expired" | "unavailable" | "not-applicable";
+
+export type RoutingTlsInfo = {
+  status: RoutingTlsStatus;
+  checkedAt: string;
+  issuer: string | null;
+  validTo: string | null;
+  error: string | null;
+};
+
+export type RoutingContainerSummary = Pick<MonitoredContainer, "id" | "name" | "image" | "compose" | "state" | "health" | "ports" | "orchestration">;
+
+export type RoutingOverviewEntry = {
+  domain: Pick<Domain, "id" | "host" | "createdAt">;
+  application: Pick<Application, "id" | "name" | "slug" | "active">;
+  service: Pick<Service, "id" | "path" | "targetHost" | "targetPort" | "active"> | null;
+  target: { host: string; port: number } | null;
+  tls: RoutingTlsInfo;
+  suggestedContainer: RoutingContainerSummary | null;
+  selectedContainer: RoutingContainerSummary | null;
+  preference: { serviceId: string; containerId: string; valid: boolean } | null;
+  matchSource: "suggestion" | "preference" | "none";
+};
+
+export type RoutingOverviewResponse = {
+  meta: {
+    generatedAt: string;
+    tlsBaseDomain: string;
+  };
+  summary: {
+    domains: number;
+    routes: number;
+    tlsValid: number;
+    tlsProblems: number;
+    suggested: number;
+    selected: number;
+  };
+  containers: RoutingContainerSummary[];
+  entries: RoutingOverviewEntry[];
+};
+
 export type Application = {
   id: string;
   name: string;
@@ -192,6 +234,7 @@ export type InfrastructureMetrics = {
 
 export type InfrastructureSnapshot = InfrastructureMetrics & {
   component: string;
+  name?: string;
   status: MetricStatus;
   sampledAt: string;
 };
@@ -255,13 +298,16 @@ export type MonitoringOverviewResponse = {
 };
 
 export type ContainerCatalogState = "running" | "stopped" | "all";
-export type ContainerAction = "start" | "stop";
-export type ContainerOrchestrationReason = "protected" | "already-running" | "already-stopped" | "unsupported-state" | null;
+export type ContainerAction = "start" | "stop" | "restart" | "rebuild" | "redeploy";
+export type ContainerOrchestrationReason = "protected" | "already-running" | "already-stopped" | "unsupported-state" | "operation-not-configured" | null;
 
 export type ContainerOrchestration = {
   protected: boolean;
   canStart: boolean;
   canStop: boolean;
+  canRestart: boolean;
+  canRebuild: boolean;
+  canRedeploy: boolean;
   reason: ContainerOrchestrationReason;
 };
 
@@ -281,6 +327,14 @@ export type ContainerComposeIdentity = {
 export type ContainerMount = {
   name: string;
   destination: string;
+};
+
+export type ContainerPublishedPort = {
+  containerPort: number;
+  protocol: string;
+  hostIp: string | null;
+  hostPort: number | null;
+  published: boolean;
 };
 
 export type ContainerVolumeUsage = {
@@ -323,6 +377,7 @@ export type MonitoredContainer = {
   state: string;
   health: string | null;
   mounts: ContainerMount[];
+  ports: ContainerPublishedPort[];
   containerCreatedAt: string | null;
   instanceStartedAt: string | null;
   firstSeenAt: string;

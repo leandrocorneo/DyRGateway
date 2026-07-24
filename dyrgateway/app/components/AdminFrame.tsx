@@ -8,11 +8,11 @@ import { api } from "@/lib/apiClient";
 
 const navGroups = [
   { label: "Visao geral", items: [{ href: "/", label: "Dashboard", icon: Gauge }, { href: "/health", label: "Saude do sistema", icon: Activity }] },
-  { label: "Roteamento", items: [{ href: "/applications", label: "Aplicacoes", icon: AppWindow }, { href: "/domains", label: "Dominios", icon: Globe2 }, { href: "/services", label: "Servicos", icon: ServerCog }, { href: "/gateway", label: "Diagnostico", icon: Network }] },
+  { label: "Roteamento", items: [{ href: "/applications", label: "Aplicacoes", icon: AppWindow }, { href: "/domains", label: "Dominios", icon: Globe2 }, { href: "/services", label: "Servicos", icon: ServerCog }, { href: "/routing", label: "Dominios e proxy", icon: Network }, { href: "/gateway", label: "Diagnostico", icon: Network }] },
   { label: "Acesso", items: [{ href: "/users/new", label: "Novo usuario", icon: UserPlus }] },
 ];
 
-const titles: Record<string, string> = { "/": "Dashboard", "/applications": "Aplicacoes", "/domains": "Dominios", "/services": "Servicos", "/gateway": "Diagnostico", "/health": "Saude do sistema", "/users/new": "Novo usuario" };
+const titles: Record<string, string> = { "/": "Dashboard", "/applications": "Aplicacoes", "/domains": "Dominios", "/services": "Servicos", "/routing": "Dominios e proxy", "/gateway": "Diagnostico", "/health": "Saude do sistema", "/users/new": "Novo usuario" };
 
 export default function AdminFrame({ children }: PropsWithChildren) {
   const pathname = usePathname();

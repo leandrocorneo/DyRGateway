@@ -12,6 +12,7 @@ import {
   Cpu,
   HardDrive,
   MemoryStick,
+  Network,
   RefreshCw,
   RotateCcw,
   TerminalSquare,
@@ -33,6 +34,8 @@ import {
   containerIdentityLabel,
   dockerStateLabel,
   formatBytes,
+  formatContainerPort,
+  formatContainerPorts,
   formatDateTime,
   formatDuration,
   formatNumber,
@@ -202,6 +205,7 @@ function ContainerDetailWorkspace() {
           <MetadataItem label="Origem da identidade" value={containerIdentityLabel(container.identitySource)} />
           <MetadataItem label="Projeto Compose" value={container.compose?.project || "Standalone"} />
           <MetadataItem label="Servico / replica" value={container.compose ? (container.compose.service || "-") + (container.compose.containerNumber ? " #" + container.compose.containerNumber : "") : "-"} />
+          <MetadataItem label="Portas" value={formatContainerPorts(container.ports, 3)} />
           <MetadataItem label="Primeira observacao" value={formatDateTime(container.firstSeenAt)} />
           <MetadataItem label="Ultima observacao" value={formatDateTime(container.lastSeenAt)} />
           <MetadataItem label="Criado no Docker" value={formatDateTime(container.containerCreatedAt)} />
@@ -233,6 +237,21 @@ function ContainerDetailWorkspace() {
         <ChartPanel title="Processos" subtitle="PIDs observados pelo Docker Stats" empty={!hasValues(chart.data, "pids")}>
           <MetricChart data={chart.data} range={range} markers={chart.markers} series={[{ key: "pids", label: "PIDs", color: "var(--chart-ink)", kind: "area" }]} valueFormatter={(value) => formatNumber(value, 0)} axisFormatter={(value) => formatNumber(value, 0)} />
         </ChartPanel>
+      </section>
+
+      <section className="panel overflow-hidden">
+        <div className="panel-header">
+          <div><h2 className="panel-title">Portas publicadas</h2><p className="panel-subtitle">Mapeamento Docker entre porta interna e host</p></div>
+          <Network size={17} className="text-[var(--accent)]" />
+        </div>
+        {container.ports.length ? (
+          <div className="data-table-wrap">
+            <table className="data-table analytics-table min-w-[680px]">
+              <thead><tr><th>Interna</th><th>Host</th><th>Protocolo</th><th>Status</th></tr></thead>
+              <tbody>{container.ports.map((port) => <tr key={formatContainerPort(port)}><td className="mono font-semibold">{port.containerPort}</td><td className="mono text-[var(--muted)]">{port.hostPort ? `${port.hostIp && port.hostIp !== "0.0.0.0" ? port.hostIp + ":" : ""}${port.hostPort}` : "-"}</td><td>{port.protocol.toUpperCase()}</td><td>{port.published ? "Publicada" : "Interna"}</td></tr>)}</tbody>
+            </table>
+          </div>
+        ) : <EmptyState text="Este container nao possui portas reportadas pelo Docker." />}
       </section>
 
       <section className="panel overflow-hidden">

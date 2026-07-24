@@ -26,6 +26,7 @@ import { Button, EmptyState, Input, Select } from "@/app/components/ui";
 import {
   dockerStateLabel,
   formatBytes,
+  formatContainerPorts,
   formatDuration,
   formatNumber,
   formatPercent,
@@ -336,6 +337,7 @@ function ContainerOperationalRow({
         <div><dt>CPU</dt><dd>{formatPercent(container.current?.cpuPercent)}</dd></div>
         <div><dt>Memoria</dt><dd>{formatBytes(container.current?.memoryUsedBytes)}</dd></div>
         <div><dt>Uptime</dt><dd>{formatDuration(container.current?.uptimeSeconds)}</dd></div>
+        <div><dt>Portas</dt><dd title={formatContainerPorts(container.ports, 6)}>{formatContainerPorts(container.ports)}</dd></div>
         <div><dt>Reinicios</dt><dd>{formatNumber(container.current?.restartCount, 0)}</dd></div>
       </dl>
       <div className="container-row-actions">

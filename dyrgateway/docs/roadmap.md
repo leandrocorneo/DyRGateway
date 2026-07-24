@@ -11,7 +11,8 @@ Itens desta página não possuem suporte completo. Não criar mocks, botões ino
 - Logs de containers em tempo real por transporte autenticado.
 - Auditoria administrativa.
 - Integração Hostinger/VPS.
-- Gerenciamento completo de projetos Compose (up, pull, criação e recriação de serviços).
+- Criação assistida de novos projetos Compose e edição avançada de arquivos Compose.
+- Upload, armazenamento e renovação de certificados TLS pelo painel.
 - Teste de conectividade de serviço.
 - Listagem de service types.
 - Alertas e incidentes em tempo real.

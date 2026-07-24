@@ -1,4 +1,4 @@
-import type { InfrastructureSnapshot, MetricStatus, MonitoringRange } from "./types";
+import type { ContainerPublishedPort, InfrastructureSnapshot, MetricStatus, MonitoringRange } from "./types";
 
 export const monitoringRanges: Array<{ value: MonitoringRange; label: string }> = [
   { value: "15m", label: "15 min" },
@@ -133,4 +133,17 @@ export function containerIdentityLabel(source: string | null | undefined) {
 export function shortContainerId(value: string | null | undefined) {
   if (!value) return "-";
   return value.length > 12 ? value.slice(0, 12) : value;
+}
+
+export function formatContainerPort(port: ContainerPublishedPort) {
+  const privatePort = `${port.containerPort}/${port.protocol || "tcp"}`;
+  if (!port.published || !port.hostPort) return privatePort;
+  const host = port.hostIp && port.hostIp !== "0.0.0.0" ? port.hostIp + ":" : "";
+  return `${privatePort} -> ${host}${port.hostPort}`;
+}
+
+export function formatContainerPorts(ports: ContainerPublishedPort[] | null | undefined, limit = 2) {
+  if (!ports?.length) return "Sem porta publicada";
+  const values = ports.slice(0, limit).map(formatContainerPort);
+  return ports.length > limit ? `${values.join(", ")} +${ports.length - limit}` : values.join(", ");
 }
